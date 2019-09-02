@@ -1,0 +1,11 @@
+{
+  "name": "@agoric/tape-xs",
+  "version": "0.1.0",
+  "description": "tape work-alike for the moddable xs platform",
+  "main": "tape.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Agoric",
+  "license": "Apache-2.0"
+}
