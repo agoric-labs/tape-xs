@@ -47,70 +47,90 @@ function deepEqual(x, y) {
   throw new Error(detail);
 }
 
-export async function test(label, run) {
-  let result = null;
+// https://testanything.org/tap-specification.html
+function tapFormat(writeln) {
+  return freeze({
+    ok(testNum, txt) {
+      writeln(`ok ${testNum} ${txt}`);
+    },
+    skip(testNum, txt) {
+      writeln(`ok ${testNum || ''} # SKIP ${txt}`);
+    },
+    notOk(testNum, txt) {
+      writeln(`not ok ${testNum} ${txt}`);
+    },
+    diagnostic(txt) {
+      writeln(`# ${txt}`);
+    },
+  });
+}
 
-  function fail(info) {
-    console.log(label, info);
-    result = false;
+let testNum = 0;  // ISSUE: ambient
+
+export async function test(label, run) {
+  const out = tapFormat((txt) => { console.log(txt); });
+  let calledEnd = false;
+
+  out.diagnostic(label);
+
+  function assert(result, info) {
+    testNum += 1;
+    if (result) {
+      out.ok(testNum, info);
+    } else {
+      out.notOk(testNum, info);
+    }
   }
 
   const t = freeze({
     end() {
-      if (result === null) {
-        result = true;
+      if (calledEnd) {
+        assert(false, 'already called end');
       }
+      calledEnd = true;
     },
     equal(a, b) {
-      if (a !== b) {
-        fail('not equal. IOU details');
-      }
+      assert(a == b, 'should be equal');
     },
     deepEqual(actual, expected) {
       try {
-        deepEqual(actual, expected);
+        assert(deepEqual(actual, expected), 'should be equivalent');
       } catch (detail) {
         const summary = JSON.stringify({ actual, expected });
-        fail(`not deepEqual: ${summary} : ${detail.message}`);
+        assert(false, `should be equivalent: ${summary} : ${detail.message}`);
       }
     },
     throws(thunk, pattern) {
       try {
         thunk();
-        result = false;
+        assert(false, 'should throw');
       } catch (ex) {
-        result = ex.message.match(pattern);
+        assert(ex.message.match(pattern), `should throw like ${pattern}`);
       }
     },
     ok(a) {
-      if (!a) {
-        fail('not ok');
-      }
+      assert(!!a, 'should be truthy');
     },
     notOk(a) {
-      if (a) {
-        fail('unexpected ok');
-      }
+      assert(!a, 'should be falsy');
     },
     is(a, b) {
-      if (!Object.is(a, b)) {
-        fail('Object.is failed');
-      }
+      assert(Object.is(a, b), 'should be identical');
     },
   });
 
   try {
     await run(t);
   } catch (ex) {
-    fail(`thrown: ${ex.message}`);
+    assert(false, `thrown: ${ex.message}`);
   }
 
-  if (result === null) {
-    fail('not ended');
+  if (!calledEnd) {
+    assert(false, 'must call end()');
   }
-  console.log(`  - [${result ? 'x' : ''}] ${label} ${result ? '' : ' - FAIL'}`);
 }
 
 test.skip = function skip(label) {
-  console.log(label, 'SKIP');
+  const out = tapFormat((txt) => { console.log(txt); });
+  out.skip(null, label);
 };
