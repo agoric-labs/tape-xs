@@ -47,7 +47,7 @@ function deepEqual(x, y) {
   throw new Error(detail);
 }
 
-export default async function test(label, run) {
+export async function test(label, run) {
   let result = null;
 
   function fail(info) {
