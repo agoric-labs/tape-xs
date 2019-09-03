@@ -65,16 +65,45 @@ function tapFormat(writeln) {
   });
 }
 
-let testNum = 0;  // ISSUE: ambient
+let theHarness = null;  // ISSUE: ambient
 
-export async function test(label, run) {
+function createHarness() {
+  let testNum = 0;
+  let passCount = 0;
+
+  const it = freeze({
+    finish(ok) {
+      testNum += 1;
+      if (ok) {
+        passCount += 1;
+      }
+      return testNum;
+    },
+    summary() {
+      return {
+        pass: passCount,
+        fail: testNum - passCount,
+        total: testNum
+      };
+    },
+  });
+
+  if (!theHarness) {
+    theHarness = it;
+  }
+  return it;
+}
+
+
+export async function test(label, run, htestOpt) {
   const out = tapFormat((txt) => { console.log(txt); });
   let calledEnd = false;
+  const htest = htestOpt || theHarness || createHarness();
 
   out.diagnostic(label);
 
   function assert(result, info) {
-    testNum += 1;
+    const testNum = htest.finish(result);
     if (result) {
       out.ok(testNum, info);
     } else {
@@ -134,3 +163,6 @@ test.skip = function skip(label) {
   const out = tapFormat((txt) => { console.log(txt); });
   out.skip(null, label);
 };
+
+
+test.createHarness = createHarness;
