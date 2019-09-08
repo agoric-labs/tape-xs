@@ -137,6 +137,13 @@ export async function test(label, run, htestOpt) {
         assert(ex.message.match(pattern), `should throw like ${pattern}`);
       }
     },
+    async rejects(thunk, pattern) {
+      try {
+        await thunk();
+      } catch (ex) {
+        assert(ex.message.match(pattern), `should reject like ${pattern}`);
+      }
+    },
     ok(a) {
       assert(!!a, 'should be truthy');
     },
