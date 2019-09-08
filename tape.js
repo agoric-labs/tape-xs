@@ -155,7 +155,7 @@ export async function test(label, run, htestOpt) {
   }
 
   if (!calledEnd) {
-    assert(false, 'must call end()');
+    assert(false, `must call end(): ${label}`);
   }
 }
 
