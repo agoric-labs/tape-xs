@@ -5,8 +5,8 @@ import tape from 'tape-promise/tape';
 
 const harden = x => Object.freeze(x, true);
 
-const pkg = 'eventual-send';
-const testModule = 'test/test'; // TODO many test scripts
+const pkg = __PACKAGE__;
+const testModules = __TESTMODS__;
 
 export default async function main() {
   trace(`in ${pkg} test/test driver.\n`);
@@ -20,8 +20,10 @@ export default async function main() {
 
   const modMap = { ...Compartment.map };
   delete modMap['timer']; // ISSUE: should whitelist
-  const testing = new Compartment(testModule, { setTimeout }, modMap);
-  // trace('built testing compartment\n');
+  for (const testModule of testModules) {
+    const testing = new Compartment(testModule, { setTimeout }, modMap);
+    // trace('built testing compartment\n');
+  }
 
   const summary = await htest.result();
   trace('Result:\n' + JSON.stringify(summary) + '\n');

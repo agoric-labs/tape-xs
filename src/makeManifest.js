@@ -1,33 +1,57 @@
 import detective from 'detective-es6';
 
-const here = '/home/connolly/projects/agoric/tape-xs'; // TODO: FIXME
+const REPLACEMENTS = {
+  '@agoric/harden':      'src/harden-xs',
 
-const replacements = {
-  'tape-promise/tape':   `${here}/tape`,
-  '@agoric/harden':      `${here}/src/harden-xs`,
+  // npm
+  'tape-promise/tape':   'tape',
+
+  // xs
+  'xs-platform/console': 'console',
 };
 
-async function main(argv, stdout, { fsp, cabinet }) {
-  const [directory, filename] = argv.slice(2);
+async function main(argv, stdout, { fsp, cabinet, assets }) {
+  const [directory, ...filenames] = argv.slice(2);
 
-  const deps = await moduleDeps(filename, {
-    getSource: async fn => await fsp.readFile(fn, 'utf-8'),
-    findModule: (specifier, fn) => cabinet({
-      partial: specifier, directory: directory, filename: fn,
-      nodeModulesConfig: { entry: 'module' },
-    }),
-    filter: dep => !Object.keys(replacements).includes(dep.specifier),
-  });
+  let allDeps = [];
+  const testMods = [];
 
-  const manifest = moduleManifest(deps, directory);
-  stdout.write(JSON.stringify(manifest, null, 2));
+  for (const filename of filenames) {
+    const deps = await moduleDeps(filename, {
+      getSource: async fn => await fsp.readFile(fn, 'utf-8'),
+      findModule: (specifier, fn) =>
+	specifier in REPLACEMENTS ? `${assets}/${REPLACEMENTS[specifier]}.js` :
+	cabinet({
+	  partial: specifier, directory: directory, filename: fn,
+	  nodeModulesConfig: { entry: 'module' },
+	}),
+      filter: dep => dep.specifier !== 'module',
+    });
+    testMods.push(deps[0].specifier);
+    // console.log({ filename, deps });
+    allDeps = [...allDeps, ...deps];
+  }
+
+  const result = { manifest: `test-xs-manifest.json`, main: `test-xs-main.js` };
+
+  const manifest = moduleManifest(allDeps, directory, assets);
+  const manifestJSON = JSON.stringify(manifest, null, 2);
+  await fsp.writeFile(result.manifest, manifestJSON);
+
+  const main_tpl = await fsp.readFile(`${assets}/src/main_tpl.js`, 'utf-8');
+  const pkg = directory.split('/').slice(-1)[0];
+  const main = main_tpl
+	.replace('__PACKAGE__', JSON.stringify(pkg))
+	.replace('__TESTMODS__', JSON.stringify(testMods));
+  await fsp.writeFile(result.main, main);
+  stdout.write(JSON.stringify(result) + '\n');
 }
 
 
 async function moduleDeps(filename, { getSource, findModule, filter }) {
   let queue = [{ filename }];
   const seen = new Set();
-  let out = [{ filename }];
+  let out = [{ specifier: filename.replace(/\.js$/, ''), filename }];
 
   while (queue.length > 0) {
     const { filename: fn } = queue.pop();
@@ -37,13 +61,12 @@ async function moduleDeps(filename, { getSource, findModule, filter }) {
     const newDeps = deps.filter(dep => filter(dep) && !seen.has(dep.filename));
     out = [...out, ...newDeps];
     queue = [...queue, ...newDeps];
-    // console.log({ fn, deps });
   }
   return out;
 }
 
 
-function moduleManifest(deps, topDir) {
+function moduleManifest(deps, topDir, assets) {
   // xs doesn't want .js on the end of source filenames
   const stripExt = fn => fn.replace(/.js$/, '');
 
@@ -60,6 +83,7 @@ function moduleManifest(deps, topDir) {
   const modules = Object.fromEntries(deps.map(
     ({ specifier, filename }) => [modKey(specifier, filename), stripExt(filename)]
   ));
+
   return {
     include: "$(MODDABLE)/examples/manifest_base.json",
     strip: [],
@@ -73,21 +97,20 @@ function moduleManifest(deps, topDir) {
     // Share theHarness between tests and driver.
     preload: ['tape-promise/tape'],
     modules: {
-      main: "./main",
-      'xs-platform/console': `${here}/console`,
-      ...replacements,
+      main: "./test-xs-main",
       ...modules,
     },
   };
 }
 
 
-/* global require, module, process */
+/* global require, module, process, __dirname */
 if (require.main === module) {
   // Access ambient stuff only when invoked as main module.
   main(process.argv, process.stdout, {
     fsp: require('fs').promises,
     cabinet: require('filing-cabinet'),
+    assets: __dirname.replace(/\/src$/, ''),
   })
     .catch(oops => { console.error(oops); });
 }
