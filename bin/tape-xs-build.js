@@ -10,7 +10,7 @@ const REPLACEMENTS = {
   'xs-platform/console': 'src/console',
 };
 
-async function main(argv, stdout, { fsp, cabinet, assets }) {
+async function main(argv, { fsp, cabinet, assets }) {
   const [directory, ...filenames] = argv.slice(2);
 
   let allDeps = [];
@@ -44,7 +44,9 @@ async function main(argv, stdout, { fsp, cabinet, assets }) {
 	.replace('__PACKAGE__', JSON.stringify(pkg))
 	.replace('__TESTMODS__', JSON.stringify(testMods));
   await fsp.writeFile(result.main, main);
-  stdout.write(JSON.stringify(result) + '\n');
+
+  console.log(result);
+  console.log(`try: mcconfig -d -m ${result.manifest}`);
 }
 
 
@@ -107,7 +109,7 @@ function moduleManifest(deps, topDir, assets) {
 /* global require, module, process, __dirname */
 if (require.main === module) {
   // Access ambient stuff only when invoked as main module.
-  main(process.argv, process.stdout, {
+  main(process.argv, {
     fsp: require('fs').promises,
     cabinet: require('filing-cabinet'),
     assets: __dirname.replace(/\/bin$/, ''),
