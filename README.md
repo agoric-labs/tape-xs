@@ -42,3 +42,34 @@ ok 4 should be equal
 Result:
 {"pass":42,"fail":0,"total":42}
 ```
+
+## TODO: x-cli-lin platform
+
+Rather than running in the xs simulator with output to the debugger,
+this should run as a nomral CLI output:
+
+  - exit, with exit code, when all tests are run
+  - output to stdout / stderr
+
+## Limitations: fragile module manifest approach
+
+Building the module map is likely to be fragile.
+
+The xs manifest format is insensitive to the path where a module
+specifier is found.  Where in node.js `./E` would refer to one thing
+in `lib1/m1.js` and another in `lib2/m2.js`, it can only refer to one
+thing in xs.
+
+See [struggling with ../.. in import specifier paths #57](https://github.com/Agoric/agoric-sdk/issues/57).
+
+
+## Limitations: incremental port of tape API
+
+The tape API is ported incrementally as I run into methods that are
+used in Agoric tests. It is unlikely to be complete.
+
+
+## Issues: @agoric/harden
+
+On xs, `@agoric/harden` fails a runtime assertion, so we use a
+different approach. See `src/harden-xs.js` for details.

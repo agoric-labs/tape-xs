@@ -1,4 +1,9 @@
+/** tape-xs-build: build tape style test driver for xs
+ */
+
 import detective from 'detective-es6';
+
+const USAGE = 'Usage: tape-xs-build /full/path/to/a-package/ test/*.js';
 
 const REPLACEMENTS = {
   '@agoric/harden':      'src/harden-xs',
@@ -10,8 +15,32 @@ const REPLACEMENTS = {
   'xs-platform/console': 'src/console',
 };
 
+const MANIFEST_DEFAULTS = {
+  include: "$(MODDABLE)/examples/manifest_base.json",
+
+  // "machine" size: somewhat arbitrary but larger than
+  // microcontroller-oriented default
+  creation: {
+    keys: {
+      available: 4096,
+    },
+    stack: 4096
+  },
+
+  // Don't try to strip out unused components.
+  // Dynamically loaded code might want more.
+  strip: [],
+
+  // Share theHarness between tests and driver.
+  preload: ['tape-promise/tape'],
+};
+
+
 async function main(argv, { fsp, cabinet, assets }) {
   const [directory, ...filenames] = argv.slice(2);
+  const pkg = directory.replace(/\/$/, '').split('/').slice(-1)[0];
+
+  if (!directory || !pkg || filenames.length < 1) { throw USAGE; }
 
   let allDeps = [];
   const testMods = [];
@@ -32,10 +61,9 @@ async function main(argv, { fsp, cabinet, assets }) {
     allDeps = [...allDeps, ...deps];
   }
 
-  const pkg = directory.replace(/\/$/, '').split('/').slice(-1)[0];
   const result = { package: pkg, manifest: `test-xs-manifest.json`, main: `test-xs-main.js` };
 
-  const manifest = moduleManifest(allDeps, directory, assets);
+  const manifest = moduleManifest(result.main, allDeps, directory, assets);
   const manifestJSON = JSON.stringify(manifest, null, 2);
   await fsp.writeFile(result.manifest, manifestJSON);
 
@@ -68,7 +96,7 @@ async function moduleDeps(filename, { getSource, findModule, filter }) {
 }
 
 
-function moduleManifest(deps, topDir, assets) {
+function moduleManifest(main, deps, topDir, assets) {
   // xs doesn't want .js on the end of source filenames
   const stripExt = fn => fn.replace(/.js$/, '');
 
@@ -87,19 +115,9 @@ function moduleManifest(deps, topDir, assets) {
   ));
 
   return {
-    include: "$(MODDABLE)/examples/manifest_base.json",
-    strip: [],
-    creation: {
-      keys: {
-	// somewhat arbitrary but larger than microcontroller-oriented default
-	available: 4096,
-      },
-      stack: 4096
-    },
-    // Share theHarness between tests and driver.
-    preload: ['tape-promise/tape'],
+    ...MANIFEST_DEFAULTS,
     modules: {
-      main: "./test-xs-main",
+      main: `./${main.replace(/\.js$/, '')}`,
       ...modules,
     },
   };
@@ -108,7 +126,7 @@ function moduleManifest(deps, topDir, assets) {
 
 /* global require, module, process, __dirname */
 if (require.main === module) {
-  // Access ambient stuff only when invoked as main module.
+  // Access process authority only when invoked as script.
   main(process.argv, {
     fsp: require('fs').promises,
     cabinet: require('filing-cabinet'),
