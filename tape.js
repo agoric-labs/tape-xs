@@ -111,6 +111,10 @@ export default async function test(label, run, htestOpt) {
     }
   }
 
+  function equal(a, b) {
+    assert(a == b, 'should be equal');
+  }
+
   const t = freeze({
     end() {
       if (calledEnd) {
@@ -118,9 +122,8 @@ export default async function test(label, run, htestOpt) {
       }
       calledEnd = true;
     },
-    equal(a, b) {
-      assert(a == b, 'should be equal');
-    },
+    equal,
+    equals: equal,
     deepEqual(actual, expected) {
       try {
         assert(deepEqual(actual, expected), 'should be equivalent');
