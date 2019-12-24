@@ -122,6 +122,8 @@ function createHarness(label) {
 }
 
 
+export { test };
+
 export default async function test(label, run, htestOpt) {
   const out = tapFormat((htestOpt || {}).writeln);
   let calledEnd = false;
