@@ -102,9 +102,19 @@ function moduleManifest(main, deps, topDir, assets) {
   }
 
   function modKey(specifier, fullPath) {
-    const bare = typeof specifier === 'string' && !/^\.\.?\//.exec(specifier);
-    const local = fullPath.startsWith(topDir);
-    return bare ? specifier : local ? stripExt(relative(fullPath)) : specifier;
+    if (typeof specifier === 'string' && !/^\.\.?\//.exec(specifier)) {
+      // bare
+      return specifier;
+    } else if (fullPath.startsWith(topDir)) {
+      // local
+      return stripExt(relative(fullPath));
+    } else if (fullPath.indexOf('node_modules/@agoric') >= 0) {
+      // @agoric/eventual-send/src/E -> @agoric/E
+      const [_, f] = /node_modules\/@agoric\/[^\/]+\/src\/(.*)/.exec(fullPath);
+      return `@agoric/${f.replace(/\.js$/, '')}`;
+    } else {
+      return specifier;
+    }
   }
 
   const modules = Object.fromEntries(deps.map(
