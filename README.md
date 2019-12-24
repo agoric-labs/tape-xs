@@ -1,7 +1,7 @@
 # tape-xs: tape work-alike for xs
 
 One of main differences between node.js and the [Moddable XS SDK][xs]
-is modules: xs supports only ES5 modules. Attempting to port tape
+is modules: xs supports only ES6 modules. Attempting to port tape
 showed extensive cjs dependencies. Incremental development of a
 work-alike has worked reasonably well so far.
 
