@@ -1,6 +1,6 @@
 import detective from 'detective-es6';
 
-async function main(argv, { fsp, cabinet }) {
+async function main(argv, stdout, { fsp, cabinet }) {
   const [directory, filename] = argv.slice(2);
 
   const deps = await moduleDeps(filename, {
@@ -9,17 +9,11 @@ async function main(argv, { fsp, cabinet }) {
       partial: specifier, directory: directory, filename: fn,
       nodeModulesConfig: { entry: 'module' },
     }),
-    filter: fn => !endsWith(fn, '/tape.js'),
+    filter: fn => !fn.endsWith('/tape.js'),
   });
 
-  console.log({ deps });
-}
-
-
-function endsWith(haystack, needle) {
-  const tail = haystack.slice(haystack.length - needle.length, haystack.length);
-  // console.log({ haystack, needle, tail, result: tail === needle });
-  return tail === needle;
+  const manifest = moduleManifest(deps, directory);
+  stdout.write(JSON.stringify(manifest, null, 2));
 }
 
 
@@ -36,16 +30,43 @@ async function moduleDeps(filename, { getSource, findModule, filter }) {
     const newDeps = deps.filter(({ filename }) => filter(filename) && !seen.has(filename));
     out = [...out, ...newDeps];
     queue = [...queue, ...newDeps];
-    console.log({ fn, deps });
+    // console.log({ fn, deps });
   }
   return out;
+}
+
+
+function moduleManifest(deps, topDir) {
+  // xs doesn't want .js on the end of source filenames
+  const stripExt = fn => fn.replace(/.js$/, '');
+
+  function relative(fullPath) {
+    return './' + fullPath.slice(topDir.length);
+  }
+
+  function modKey(specifier, fullPath) {
+    const bare = typeof specifier === 'string' && !/^\.\.?\//.exec(specifier);
+    const local = fullPath.startsWith(topDir);
+    return bare ? specifier : local ? stripExt(relative(fullPath)) : specifier;
+  }
+
+  const modules = Object.fromEntries(deps.map(
+    ({ specifier, filename }) => [modKey(specifier, filename), stripExt(filename)]
+  ));
+  return {
+    include: "$(MODDABLE)/examples/manifest_base.json",
+    modules: {
+      main: "./main",
+      ...modules
+    },
+  };
 }
 
 
 /* global require, module, process */
 if (require.main === module) {
   // Access ambient stuff only when invoked as main module.
-  main(process.argv, {
+  main(process.argv, process.stdout, {
     fsp: require('fs').promises,
     cabinet: require('filing-cabinet'),
   })
