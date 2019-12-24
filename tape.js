@@ -67,9 +67,28 @@ function tapFormat(writeln) {
 
 let theHarness = null;  // ISSUE: ambient
 
-function createHarness() {
+function makePromise() {
+  let resolve, reject;
+  const promise = new Promise((win, lose) => {
+    resolve = win;
+    reject = lose;
+  });
+  return freeze({ resolve, reject, promise });
+}
+
+function createHarness(label) {
   let testNum = 0;
   let passCount = 0;
+  let pending = 0;
+  const resultP = makePromise();
+
+  function summary() {
+    return {
+      pass: passCount,
+      fail: testNum - passCount,
+      total: testNum
+    };
+  }
 
   const it = freeze({
     finish(ok) {
@@ -79,12 +98,18 @@ function createHarness() {
       }
       return testNum;
     },
-    summary() {
-      return {
-        pass: passCount,
-        fail: testNum - passCount,
-        total: testNum
-      };
+    push(label) {
+      pending += 1;
+    },
+    pop() {
+      pending -= 1;
+      if (pending <= 0) {
+	resultP.resolve(summary());
+      }
+    },
+    summary,
+    result() {
+      return resultP.promise;
     },
   });
 
@@ -121,6 +146,7 @@ export default async function test(label, run, htestOpt) {
         assert(false, 'already called end');
       }
       calledEnd = true;
+      htest.pop();
     },
     equal,
     equals: equal,
@@ -158,6 +184,7 @@ export default async function test(label, run, htestOpt) {
     },
   });
 
+  htest.push(label);
   try {
     await run(t);
   } catch (ex) {
@@ -166,6 +193,7 @@ export default async function test(label, run, htestOpt) {
 
   if (!calledEnd) {
     assert(false, `must call end(): ${label}`);
+    t.end();
   }
 }
 

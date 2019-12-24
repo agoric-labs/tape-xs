@@ -70,6 +70,8 @@ function moduleManifest(deps, topDir) {
       },
       stack: 4096
     },
+    // Share theHarness between tests and driver.
+    preload: ['tape-promise/tape'],
     modules: {
       main: "./main",
       'xs-platform/console': `${here}/console`,

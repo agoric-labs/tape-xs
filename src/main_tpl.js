@@ -1,17 +1,32 @@
 /* global Compartment, trace */
 import Timer from 'timer';
 
+import tape from 'tape-promise/tape';
+
 const harden = x => Object.freeze(x, true);
 
+const pkg = 'eventual-send';
+const testModule = 'test/test'; // TODO many test scripts
+
 export default async function main() {
-  trace('in main.\n');
-  trace(JSON.stringify(Object.keys(Compartment.map), null, 2));
+  trace(`in ${pkg} test/test driver.\n`);
+
+  // trace(JSON.stringify(Object.keys(Compartment.map), null, 2));
+
   const { setTimeout } = makeTimer(Timer);
+
+  // We use preloading to share tape's main harness.
+  const htest = tape.createHarness(pkg);
+
   const modMap = { ...Compartment.map };
   delete modMap['timer']; // ISSUE: should whitelist
-  const c1 = new Compartment('test/test', { setTimeout }, modMap);
-  trace('c1\n');
+  const testing = new Compartment(testModule, { setTimeout }, modMap);
+  // trace('built testing compartment\n');
+
+  const summary = await htest.result();
+  trace('Result:\n' + JSON.stringify(summary) + '\n');
 }
+
 
 function makeTimer(Timer) {
   return harden({
