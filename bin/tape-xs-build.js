@@ -4,10 +4,10 @@ const REPLACEMENTS = {
   '@agoric/harden':      'src/harden-xs',
 
   // npm
-  'tape-promise/tape':   'tape',
+  'tape-promise/tape':   'src/tape',
 
   // xs
-  'xs-platform/console': 'console',
+  'xs-platform/console': 'src/console',
 };
 
 async function main(argv, stdout, { fsp, cabinet, assets }) {
@@ -38,7 +38,7 @@ async function main(argv, stdout, { fsp, cabinet, assets }) {
   const manifestJSON = JSON.stringify(manifest, null, 2);
   await fsp.writeFile(result.manifest, manifestJSON);
 
-  const main_tpl = await fsp.readFile(`${assets}/src/main_tpl.js`, 'utf-8');
+  const main_tpl = await fsp.readFile(`${assets}/tpl/main_tpl.js`, 'utf-8');
   const pkg = directory.split('/').slice(-1)[0];
   const main = main_tpl
 	.replace('__PACKAGE__', JSON.stringify(pkg))
@@ -110,7 +110,7 @@ if (require.main === module) {
   main(process.argv, process.stdout, {
     fsp: require('fs').promises,
     cabinet: require('filing-cabinet'),
-    assets: __dirname.replace(/\/src$/, ''),
+    assets: __dirname.replace(/\/bin$/, ''),
   })
     .catch(oops => { console.error(oops); });
 }
