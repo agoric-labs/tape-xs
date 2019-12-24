@@ -1,5 +1,12 @@
 import detective from 'detective-es6';
 
+const here = '/home/connolly/projects/agoric/tape-xs'; // TODO: FIXME
+
+const replacements = {
+  'tape-promise/tape':   `${here}/tape`,
+  '@agoric/harden':      `${here}/src/harden-xs`,
+};
+
 async function main(argv, stdout, { fsp, cabinet }) {
   const [directory, filename] = argv.slice(2);
 
@@ -9,7 +16,7 @@ async function main(argv, stdout, { fsp, cabinet }) {
       partial: specifier, directory: directory, filename: fn,
       nodeModulesConfig: { entry: 'module' },
     }),
-    filter: fn => !fn.endsWith('/tape.js'),
+    filter: dep => !Object.keys(replacements).includes(dep.specifier),
   });
 
   const manifest = moduleManifest(deps, directory);
@@ -27,7 +34,7 @@ async function moduleDeps(filename, { getSource, findModule, filter }) {
     const src = await getSource(fn);
     const deps = detective(src)
 	  .map(specifier => ({ specifier, filename: findModule(specifier, fn) }));
-    const newDeps = deps.filter(({ filename }) => filter(filename) && !seen.has(filename));
+    const newDeps = deps.filter(dep => filter(dep) && !seen.has(dep.filename));
     out = [...out, ...newDeps];
     queue = [...queue, ...newDeps];
     // console.log({ fn, deps });
@@ -55,9 +62,19 @@ function moduleManifest(deps, topDir) {
   ));
   return {
     include: "$(MODDABLE)/examples/manifest_base.json",
+    strip: [],
+    creation: {
+      keys: {
+	// somewhat arbitrary but larger than microcontroller-oriented default
+	available: 4096,
+      },
+      stack: 4096
+    },
     modules: {
       main: "./main",
-      ...modules
+      'xs-platform/console': `${here}/console`,
+      ...replacements,
+      ...modules,
     },
   };
 }
