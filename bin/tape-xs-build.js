@@ -32,14 +32,14 @@ async function main(argv, { fsp, cabinet, assets }) {
     allDeps = [...allDeps, ...deps];
   }
 
-  const result = { manifest: `test-xs-manifest.json`, main: `test-xs-main.js` };
+  const pkg = directory.replace(/\/$/, '').split('/').slice(-1)[0];
+  const result = { package: pkg, manifest: `test-xs-manifest.json`, main: `test-xs-main.js` };
 
   const manifest = moduleManifest(allDeps, directory, assets);
   const manifestJSON = JSON.stringify(manifest, null, 2);
   await fsp.writeFile(result.manifest, manifestJSON);
 
   const main_tpl = await fsp.readFile(`${assets}/tpl/main_tpl.js`, 'utf-8');
-  const pkg = directory.split('/').slice(-1)[0];
   const main = main_tpl
 	.replace('__PACKAGE__', JSON.stringify(pkg))
 	.replace('__TESTMODS__', JSON.stringify(testMods));

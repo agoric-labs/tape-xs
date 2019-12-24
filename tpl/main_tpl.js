@@ -9,7 +9,7 @@ const pkg = __PACKAGE__;
 const testModules = __TESTMODS__;
 
 export default async function main() {
-  trace(`in ${pkg} test/test driver.\n`);
+  trace(`in ${pkg} driver...\n`);
 
   // trace(JSON.stringify(Object.keys(Compartment.map), null, 2));
 
@@ -21,6 +21,7 @@ export default async function main() {
   const modMap = { ...Compartment.map };
   delete modMap['timer']; // ISSUE: should whitelist
   for (const testModule of testModules) {
+    trace(`running ${testModule}...\n`);
     const testing = new Compartment(testModule, { setTimeout }, modMap);
     // trace('built testing compartment\n');
   }
