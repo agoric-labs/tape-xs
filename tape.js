@@ -95,7 +95,7 @@ function createHarness() {
 }
 
 
-export async function test(label, run, htestOpt) {
+export default async function test(label, run, htestOpt) {
   const out = tapFormat((txt) => { console.log(txt); });
   let calledEnd = false;
   const htest = htestOpt || theHarness || createHarness();
