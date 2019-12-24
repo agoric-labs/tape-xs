@@ -3,13 +3,16 @@ import Timer from 'timer';
 
 import tape from 'tape-promise/tape';
 
+import { makeConsole } from 'xs-platform/console';
+
 const harden = x => Object.freeze(x, true);
 
 const pkg = __PACKAGE__;
 const testModules = __TESTMODS__;
 
 export default async function main() {
-  trace(`in ${pkg} driver...\n`);
+  const console = makeConsole();
+  console.log(`in ${pkg} driver...`);
 
   // trace(JSON.stringify(Object.keys(Compartment.map), null, 2));
 
@@ -21,13 +24,13 @@ export default async function main() {
   const modMap = { ...Compartment.map };
   delete modMap['timer']; // ISSUE: should whitelist
   for (const testModule of testModules) {
-    trace(`running ${testModule}...\n`);
-    const testing = new Compartment(testModule, { setTimeout }, modMap);
+    console.log(`running ${testModule}...`);
+    const testing = new Compartment(testModule, { console, setTimeout }, modMap);
     // trace('built testing compartment\n');
   }
 
   const summary = await htest.result();
-  trace('Result:\n' + JSON.stringify(summary) + '\n');
+  console.log('Result:', summary);
 }
 
 

@@ -10,9 +10,6 @@ const REPLACEMENTS = {
 
   // npm
   'tape-promise/tape':   'src/tape',
-
-  // xs
-  'xs-platform/console': 'src/console',
 };
 
 const MANIFEST_DEFAULTS = {
@@ -118,6 +115,7 @@ function moduleManifest(main, deps, topDir, assets) {
     ...MANIFEST_DEFAULTS,
     modules: {
       main: `./${main.replace(/\.js$/, '')}`,
+      'xs-platform/console': `${assets}/src/console`,
       ...modules,
     },
   };

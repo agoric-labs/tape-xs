@@ -1,4 +1,4 @@
-import { console } from 'xs-platform/console';
+/* global trace */
 
 const { freeze } = Object;
 
@@ -48,7 +48,9 @@ function deepEqual(x, y) {
 }
 
 // https://testanything.org/tap-specification.html
-function tapFormat(writeln) {
+function tapFormat(writeln_) {
+  const writeln = writeln_ || ((txt) => { trace(txt + '\n'); });
+
   return freeze({
     ok(testNum, txt) {
       writeln(`ok ${testNum} ${txt}`);
@@ -121,7 +123,7 @@ function createHarness(label) {
 
 
 export default async function test(label, run, htestOpt) {
-  const out = tapFormat((txt) => { console.log(txt); });
+  const out = tapFormat((htestOpt || {}).writeln);
   let calledEnd = false;
   const htest = htestOpt || theHarness || createHarness();
 
@@ -197,8 +199,8 @@ export default async function test(label, run, htestOpt) {
   }
 }
 
-test.skip = function skip(label) {
-  const out = tapFormat((txt) => { console.log(txt); });
+test.skip = function skip(label, htestOpt) {
+  const out = tapFormat((htestOpt || {}).writeln);
   out.skip(null, label);
 };
 
