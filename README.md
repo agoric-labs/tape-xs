@@ -2,7 +2,7 @@
 
 One of main differences between node.js and the [Moddable XS SDK][xs]
 is modules: xs supports only ES6 modules. Attempting to port tape
-showed extensive cjs dependencies. Incremental development of a
+showed extensive CommonJS dependencies. Incremental development of a
 work-alike has worked reasonably well so far.
 
 A typical usage of tape is `npm test` where `package.json` has...
@@ -28,8 +28,10 @@ try: mcconfig -d -m test-xs-manifest.json
 [manifest]: https://github.com/Moddable-OpenSource/moddable/blob/public/documentation/tools/manifest.md
 [xs]: https://github.com/Moddable-OpenSource/moddable/blob/public/documentation/Moddable%20SDK%20-%20Getting%20Started.md
 
-Then (with `xsbug` running) we run `mcconfig -d -m
-test-xs-manifest.json` and in the LOG window, we see:
+Then we use `mcconfig -p x-cli-lin -d -m test-xs-manifest.json` to
+build a test runner,
+`$MODDABLE/build/bin/lin/release/eventual-send`. The output of the
+test runner looks like:
 
 ```
 in eventual-send driver...
@@ -43,13 +45,15 @@ Result:
 {"pass":42,"fail":0,"total":42}
 ```
 
-## TODO: x-cli-lin platform
+## Moddable SDK refinements: x-cli-lin platform
 
-Rather than running in the xs simulator with output to the debugger,
-this should run as a nomral CLI output:
+As of this writing, we use a version of the Moddable SDK refined with
+a CLI-oriented main loop:
 
-  - exit, with exit code, when all tests are run
-  - output to stdout / stderr
+https://github.com/dckc/moddable/releases/download/ag08/moddable-linux-sdk.tgz
+https://github.com/dckc/moddable/releases/tag/ag08 ff41561
+
+The normal Moddable simulator and debug LOG window may or may not work.
 
 ## Limitations: fragile module manifest approach
 
