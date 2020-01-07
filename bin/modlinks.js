@@ -11,9 +11,13 @@ const xs_resource = [
 
 const xs_node_api = [
   'crypto',
+  'child_process',
   'events',
   'fs',
+  'http',
   'path',
+  'process',
+  'temp',
   'util',
 ];
 
@@ -23,7 +27,11 @@ const xs_npm = [
   'ses',
   'tape-promise/tape',
   'tape',
+  'minimist',
   'moddable-sdk',
+  'morgan',
+  'n-readlines',
+  'ws',
   '@agoric/harden',
   '@agoric/bundle-source',
   '@agoric/default-evaluate-options',
