@@ -144,6 +144,15 @@ export default async function test(label, run, htestOpt) {
     assert(a == b, 'should be equal');
   }
 
+  function deepEqTest(actual, expected) {
+    try {
+      assert(deepEqual(actual, expected), 'should be equivalent');
+    } catch (detail) {
+      const summary = JSON.stringify({ actual, expected });
+      assert(false, `should be equivalent: ${summary} : ${detail.message}`);
+    }
+  }
+
   const t = freeze({
     end() {
       if (calledEnd) {
@@ -154,14 +163,8 @@ export default async function test(label, run, htestOpt) {
     },
     equal,
     equals: equal,
-    deepEqual(actual, expected) {
-      try {
-        assert(deepEqual(actual, expected), 'should be equivalent');
-      } catch (detail) {
-        const summary = JSON.stringify({ actual, expected });
-        assert(false, `should be equivalent: ${summary} : ${detail.message}`);
-      }
-    },
+    deepEqual: deepEqTest,
+    deepEquals: deepEqTest,
     throws(thunk, pattern) {
       try {
         thunk();
