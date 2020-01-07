@@ -5,6 +5,10 @@ import detective from 'detective-es6';
 
 const USAGE = 'modlinks DIR FILE...';
 
+const xs_resource = [
+  'Resource',
+];
+
 const xs_node_api = [
   'crypto',
   'events',
@@ -19,12 +23,13 @@ const xs_npm = [
   'ses',
   'tape-promise/tape',
   'tape',
+  'moddable-sdk',
   '@agoric/harden',
   '@agoric/bundle-source',
   '@agoric/default-evaluate-options',
 ];
 
-async function main(argv, { fsp, resolve, cabinet, assets }) {
+async function main(argv, { assets, env, fsp, resolve, cabinet }) {
   const [directory, ...filenames] = argv.slice(2);
   const pkg = directory.replace(/\/$/, '').split('/').slice(-1)[0];
 
@@ -33,6 +38,9 @@ async function main(argv, { fsp, resolve, cabinet, assets }) {
   let allDeps = [];
 
   function fromTop(p) {
+    if (p && p.startsWith(env.XS_NODE_API)) {
+      return p.replace(env.XS_NODE_API, '$(XS_NODE_API)');
+    }
     if (p && p.startsWith(directory)) {
       return p.replace(directory, '$(TOP)/');
     }
@@ -50,10 +58,12 @@ async function main(argv, { fsp, resolve, cabinet, assets }) {
       findModule: (specifier, fn) =>
 	xs_node_api.includes(specifier) ? `$(XS_NODE_API)/${specifier}.js` :
 	xs_npm.includes(specifier) ? `$(XS_NPM)/${specifier}.js` :
+	specifier.startsWith('moddable-sdk') ? `$(MODULES)${specifier.replace(/^moddable-sdk/, '')}` :
 	cabinet({
 	  partial: specifier, directory, filename: fn,
 	  nodeModulesConfig: { entry: 'module' },
 	}),
+      env,
       // we don't want require(module)('x')
       filter: dep => dep.specifier !== 'module',
     });
@@ -78,33 +88,40 @@ async function main(argv, { fsp, resolve, cabinet, assets }) {
     });
   }
 
-  const result = { package: pkg, modmap: `package-manifest.json` };
+  const result = { package: pkg, modmap: `package-manifest.json`, compartments: 'compartments.js' };
 
   const uniq = a => Array.from(new Set(a));
   const alljs = uniq(allDeps.flatMap(c => c.deps.map(d => d.filename))).sort();
   const modules = Object.fromEntries(alljs.map(f => [toModKey(f), f.replace(/\.js$/, '')]));
   const prefixes = a => a.length == 0 ? [] : [...prefixes(a.slice(0, -1)), a];
   const dirs = Object.keys(modules).flatMap(k => prefixes(k.split('/').slice(0, -1)).map(segs => segs.join('/')));
-  const dirMarkers = Object.fromEntries(dirs.map(d => [`${d}/_MAKEDIR`, '/tmp/_MAKEDIR']));
+  const dirMarkers = Object.fromEntries(dirs.map(d => [`${d}/_MAKEDIR`, '/dev/null']));
   const manifest = {
     '$import_map': allDeps,
     modules: { ...dirMarkers, ...modules },
   };
-  await fsp.writeFile(result.modmap, JSON.stringify(manifest, null, 2));
+  const manifest_json = JSON.stringify(manifest, null, 2);
+  await fsp.writeFile(result.modmap, manifest_json);
+  await fsp.writeFile(result.compartments, `export const manifest = ${manifest_json};`);
 
   console.log(result);
 }
 
 
-async function moduleDeps(filename, { getSource, findModule, filter }) {
+async function moduleDeps(filename, { getSource, findModule, filter, env }) {
   let queue = [{ filename }];
   const seen = new Set();
   let out = [{ specifier: filename.replace(/\.js$/, ''), filename }];
 
   while (queue.length > 0) {
-    const { filename: fn, specifier, referrer } = queue.pop();
-    if (fn.startsWith('$(')) {
+    let { filename: fn, specifier, referrer } = queue.pop();
+    if (specifier && specifier.startsWith('moddable-sdk')) {
+      // avoid extended syntax
       continue;
+    }
+
+    if (fn.startsWith('$(')) {
+      fn = fn.replace(/\$\(([A-Z_]+)\)/, (_, n) => env[n]);
     }
     // console.error({ referrer, specifier });
     let src;
@@ -133,6 +150,7 @@ if (require.main === module) {
   // Access process authority only when invoked as script.
   main(process.argv, {
     fsp: require('fs').promises,
+    env: process.env,
     resolve: require('path').resolve,
     cabinet: require('filing-cabinet'),
     assets: __dirname.replace(/\/bin$/, ''),
