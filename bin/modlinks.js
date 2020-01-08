@@ -3,7 +3,7 @@
 
 import detective from 'detective-es6';
 
-const USAGE = 'modlinks DIR FILE...';
+const USAGE = 'modlinks WORKSPACE FILE...';
 
 const xs_resource = [
   'Resource',
@@ -17,13 +17,20 @@ const xs_node_api = [
   'http',
   'path',
   'process',
-  'temp',
   'util',
 ];
 
-const xs_npm = [
+const xs_npm_todo = [
   'rollup',
   'semver',
+  'deterministic-json',
+  'tendermint',
+  '@agoric/default-evaluate-options',
+];
+
+const xs_npm = [
+  'express',
+  'serve-static',
   'ses',
   'tape-promise/tape',
   'tape',
@@ -31,26 +38,33 @@ const xs_npm = [
   'moddable-sdk',
   'morgan',
   'n-readlines',
+  'temp',
   'ws',
   '@agoric/harden',
   '@agoric/bundle-source',
-  '@agoric/default-evaluate-options',
+  ...xs_npm_todo
 ];
 
 async function main(argv, { assets, env, fsp, resolve, cabinet }) {
-  const [directory, ...filenames] = argv.slice(2);
-  const pkg = directory.replace(/\/$/, '').split('/').slice(-1)[0];
+  const [workspace, ...filenames] = argv.slice(2);
+  if (!workspace || filenames.length < 1) { throw USAGE; }
 
-  if (!directory || !pkg || filenames.length < 1) { throw USAGE; }
+  const build = {
+    MODULES: '$(MODDABLE)/modules',
+    WORKSPACE: resolve(workspace),
+    XS_NODE_API: resolve(env.XS_NODE_API),
+    XS_NPM: resolve(env.XS_NPM),
+  };
 
-  let allDeps = [];
+  const allDeps = [];
+  const compartments = [];
 
   function fromTop(p) {
-    if (p && p.startsWith(env.XS_NODE_API)) {
-      return p.replace(env.XS_NODE_API, '$(XS_NODE_API)');
+    if (p && p.startsWith(build.XS_NODE_API)) {
+      return p.replace(build.XS_NODE_API, '$(XS_NODE_API)');
     }
-    if (p && p.startsWith(directory)) {
-      return p.replace(directory, '$(TOP)/');
+    if (p && p.startsWith(build.WORKSPACE)) {
+      return p.replace(build.WORKSPACE, '$(WORKSPACE)');
     }
     return p;
   }
@@ -68,15 +82,16 @@ async function main(argv, { assets, env, fsp, resolve, cabinet }) {
 	xs_npm.includes(specifier) ? `$(XS_NPM)/${specifier}.js` :
 	specifier.startsWith('moddable-sdk') ? `$(MODULES)${specifier.replace(/^moddable-sdk/, '')}` :
 	cabinet({
-	  partial: specifier, directory, filename: fn,
+	  partial: specifier, directory: workspace, filename: fn,
 	  nodeModulesConfig: { entry: 'module' },
 	}),
       env,
+      resolve,
       // we don't want require(module)('x')
       filter: dep => dep.specifier !== 'module',
     });
     deps.forEach((d) => {
-      d.specifier = d.specifier.replace(directory, './');
+      d.specifier = d.specifier.replace(workspace, './');
       d.filename = fromTop(d.filename);
       d.referrer = fromTop(d.referrer);
     });
@@ -88,35 +103,37 @@ async function main(argv, { assets, env, fsp, resolve, cabinet }) {
       ]
     ));
     // console.log({ filename, deps });
-    allDeps.push({
+    allDeps.push(deps);
+    compartments.push({
       root: toModKey(fromTop(filename)),
-      TOP: directory,
       compartment,
-      deps,
     });
   }
 
-  const result = { package: pkg, modmap: `package-manifest.json`, compartments: 'compartments.js' };
+  const result = { compartments: 'xs-compartments.json' };
+
+  build.XS_NODE_API = build.XS_NODE_API.replace(build.WORKSPACE, '$(WORKSPACE)');
+  build.XS_NPM = build.XS_NPM.replace(build.WORKSPACE, '$(WORKSPACE)');
 
   const uniq = a => Array.from(new Set(a));
-  const alljs = uniq(allDeps.flatMap(c => c.deps.map(d => d.filename))).sort();
+  const alljs = uniq(allDeps.flatMap(deps => deps.map(d => d.filename))).sort();
   const modules = Object.fromEntries(alljs.map(f => [toModKey(f), f.replace(/\.js$/, '')]));
   const prefixes = a => a.length == 0 ? [] : [...prefixes(a.slice(0, -1)), a];
   const dirs = Object.keys(modules).flatMap(k => prefixes(k.split('/').slice(0, -1)).map(segs => segs.join('/')));
   const dirMarkers = Object.fromEntries(dirs.map(d => [`${d}/_MAKEDIR`, '/dev/null']));
   const manifest = {
-    '$import_map': allDeps,
+    build,
+    compartments,
     modules: { ...dirMarkers, ...modules },
   };
   const manifest_json = JSON.stringify(manifest, null, 2);
-  await fsp.writeFile(result.modmap, manifest_json);
-  await fsp.writeFile(result.compartments, `export const manifest = ${manifest_json};`);
+  await fsp.writeFile(result.compartments, manifest_json);
 
   console.log(result);
 }
 
 
-async function moduleDeps(filename, { getSource, findModule, filter, env }) {
+async function moduleDeps(filename, { getSource, findModule, filter, env, resolve }) {
   let queue = [{ filename }];
   const seen = new Set();
   let out = [{ specifier: filename.replace(/\.js$/, ''), filename }];
@@ -129,7 +146,7 @@ async function moduleDeps(filename, { getSource, findModule, filter, env }) {
     }
 
     if (fn.startsWith('$(')) {
-      fn = fn.replace(/\$\(([A-Z_]+)\)/, (_, n) => env[n]);
+      fn = fn.replace(/\$\(([A-Z_]+)\)/, (_, n) => resolve(env[n]));
     }
     // console.error({ referrer, specifier });
     let src;
