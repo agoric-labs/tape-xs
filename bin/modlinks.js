@@ -75,7 +75,7 @@ async function main(argv, { assets, env, fsp, resolve, cabinet }) {
 
   for (let filename of filenames) {
     filename = resolve(filename);
-    const deps = await moduleDeps(filename, {
+    let deps = await moduleDeps(filename, {
       getSource: async fn => await fsp.readFile(fn, 'utf-8'),
       findModule: (specifier, fn) =>
 	xs_node_api.includes(specifier) ? `$(XS_NODE_API)/${specifier}.js` :
@@ -90,11 +90,12 @@ async function main(argv, { assets, env, fsp, resolve, cabinet }) {
       // we don't want require(module)('x')
       filter: dep => dep.specifier !== 'module',
     });
-    deps.forEach((d) => {
-      d.specifier = d.specifier.replace(workspace, './');
-      d.filename = fromTop(d.filename);
-      d.referrer = fromTop(d.referrer);
-    });
+    const readlink = async p => (!p || p.startsWith('$')) ? p : await fsp.realpath(p);
+    deps = await Promise.all(deps.map(async d => ({
+      specifier: d.specifier.replace(workspace, './'),
+      filename: fromTop(await readlink(d.filename)),
+      referrer: fromTop(await readlink(d.referrer)),
+    })));
     const compartment = Object.fromEntries(deps.map(
       ({ specifier, filename }) => [
 	// leave bare specifiers alone
