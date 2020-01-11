@@ -82,7 +82,7 @@ function createHarness(label) {
   let testNum = 0;
   let passCount = 0;
   let pending = 0;
-  const resultP = makePromise();
+  let resultP = makePromise();
 
   function summary() {
     return {
@@ -102,14 +102,23 @@ function createHarness(label) {
     },
     push(label) {
       pending += 1;
+      // console.log('push() =>', pending);
     },
     pop() {
       pending -= 1;
+      // console.log('pop() =>', pending);
       if (pending <= 0) {
 	resultP.resolve(summary());
       }
     },
     summary,
+    reset() {
+      if (pending != 0) {
+	console.warn(label, 'reset() with pending =', pending);
+      }
+      pending = 0;
+      resultP = makePromise();
+    },
     result() {
       return resultP.promise;
     },
