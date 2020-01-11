@@ -122,9 +122,7 @@ function createHarness(label) {
 }
 
 
-export { test };
-
-export default async function test(label, run, htestOpt) {
+async function test(label, run, htestOpt) {
   const out = tapFormat((htestOpt || {}).writeln);
   let calledEnd = false;
   const htest = htestOpt || theHarness || createHarness();
@@ -211,3 +209,7 @@ test.skip = function skip(label, htestOpt) {
 
 
 test.createHarness = createHarness;
+freeze(test);
+
+export default test;
+export { test };
