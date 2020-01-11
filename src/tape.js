@@ -178,6 +178,9 @@ async function test(label, run, htestOpt) {
         assert(ex.message.match(pattern), `should reject like ${pattern}`);
       }
     },
+    assert(a, message) {
+      assert(a, message);
+    },
     ok(a) {
       assert(!!a, 'should be truthy');
     },
