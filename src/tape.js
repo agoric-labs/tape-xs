@@ -138,8 +138,12 @@ async function test(label, run, htestOpt) {
     }
   }
 
-  function equal(a, b) {
-    assert(a == b, 'should be equal');
+  function equal(a, b, msg) {
+    assert(a === b, msg || 'should be equal');
+  }
+
+  function notEqual(a, b, msg) {
+    assert(a !== b, (msg || 'should be not equal') + ` ${a} !== ${b}`);
   }
 
   function deepEqTest(actual, expected) {
@@ -161,6 +165,8 @@ async function test(label, run, htestOpt) {
     },
     equal,
     equals: equal,
+    notEqual,
+    isNot: notEqual,
     deepEqual: deepEqTest,
     deepEquals: deepEqTest,
     throws(thunk, pattern) {
