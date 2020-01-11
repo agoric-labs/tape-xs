@@ -177,11 +177,13 @@ async function test(label, run, htestOpt) {
         assert(ex.message.match(pattern), `should throw like ${pattern}`);
       }
     },
-    async rejects(thunk, pattern) {
+    async rejects(thunk, expected) {
       try {
         await thunk();
+	assert(false, `should reject like ${expected}`);
       } catch (ex) {
-        assert(ex.message.match(pattern), `should reject like ${pattern}`);
+	const ok = typeof expected === 'function' ? ex instanceof expected : ex.message.match(expected);
+        assert(ok, `should reject like ${expected}`);
       }
     },
     assert(a, message) {
