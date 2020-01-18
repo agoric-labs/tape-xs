@@ -147,6 +147,10 @@ async function test(label, run, htestOpt) {
     }
   }
 
+  function ok(value, msg = 'should be truthy') {
+    assert(!!value, msg);
+  }
+
   function equal(a, b, msg) {
     assert(a === b, msg || 'should be equal');
   }
@@ -195,14 +199,11 @@ async function test(label, run, htestOpt) {
         assert(ok, `should reject like ${expected}`);
       }
     },
-    assert(a, message) {
-      assert(a, message);
-    },
-    ok(a) {
-      assert(!!a, 'should be truthy');
-    },
-    notOk(a) {
-      assert(!a, 'should be falsy');
+    ok,
+    true: ok,
+    assert: ok,
+    notOk(a, message = 'should be falsy') {
+      assert(!a, message);
     },
     is(a, b) {
       assert(Object.is(a, b), 'should be identical');
