@@ -42,6 +42,7 @@ const xs_npm = [
   'ws',
   '@agoric/harden',
   '@agoric/bundle-source',
+  '@agoric/evaluate',
   ...xs_npm_todo
 ];
 
