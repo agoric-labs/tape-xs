@@ -2,32 +2,6 @@
 
 const { freeze } = Object;
 
-// If you want to defer the test suites and run them after
-// loading all the test modules, use:
-//   test.deferSuites();
-// and then later:
-//   await test.runDeferredSuites();
-
-let suitesToRun = undefined;
-
-function deferSuites() {
-  suitesToRun = [];
-}
-
-async function runDeferredSuites() {
-  while (suitesToRun.length) {
-    const suite = suitesToRun.shift();
-    await suite();
-  }
-}
-
-function maybeDefer(thunk) {
-  if (!suitesToRun) {
-    return thunk();
-  }
-  suitesToRun.push(thunk);
-}
-
 // ack Paul Roub Aug 2014
 // https://stackoverflow.com/a/25456134/7963
 function deepEqual(x, y) {
