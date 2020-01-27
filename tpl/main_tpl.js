@@ -19,7 +19,7 @@ export default async function main() {
   const { setTimeout } = makeTimer(Timer);
 
   // We use preloading to share tape's main harness.
-  const htest = tape.createHarness(pkg);
+  const htest = await tape.createHarness(pkg);
   htest.push();
   tape.deferSuites();
 
