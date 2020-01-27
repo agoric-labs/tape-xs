@@ -42,7 +42,7 @@ async function main(argv, { fsp, cabinet, assets }) {
   let allDeps = [];
   const testMods = [];
 
-  for (const filename of filenames) {
+  for (const filename of filenames.sort()) {
     const deps = await moduleDeps(filename, {
       getSource: async fn => await fsp.readFile(fn, 'utf-8'),
       findModule: (specifier, fn) =>

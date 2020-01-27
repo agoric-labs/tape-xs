@@ -2,6 +2,32 @@
 
 const { freeze } = Object;
 
+// If you want to defer the test suites and run them after
+// loading all the test modules, use:
+//   test.deferSuites();
+// and then later:
+//   await test.runDeferredSuites();
+
+let suitesToRun = undefined;
+
+function deferSuites() {
+  suitesToRun = [];
+}
+
+async function runDeferredSuites() {
+  while (suitesToRun.length) {
+    const suite = suitesToRun.shift();
+    await suite();
+  }
+}
+
+function maybeDefer(thunk) {
+  if (!suitesToRun) {
+    return thunk();
+  }
+  suitesToRun.push(thunk);
+}
+
 // ack Paul Roub Aug 2014
 // https://stackoverflow.com/a/25456134/7963
 function deepEqual(x, y) {
@@ -83,6 +109,7 @@ function createHarness(label) {
   let passCount = 0;
   let pending = 0;
   let resultP = makePromise();
+  let suitesToRun = undefined;
 
   function summary() {
     return {
@@ -100,6 +127,24 @@ function createHarness(label) {
       }
       return testNum;
     },
+    deferSuites() {
+      suitesToRun = [];
+    },
+    maybeDefer(thunk) {
+      if (!suitesToRun) {
+        return thunk();
+      }
+      suitesToRun.push(thunk);
+    },
+    async runDeferredSuites() {
+      if (suitesToRun) {
+        while (suitesToRun.length) {
+          const suite = suitesToRun.shift();
+          await suite();
+        }
+        suitesToRun = undefined;
+      }
+    },
     push(label) {
       pending += 1;
       // console.log('push() =>', pending);
@@ -108,7 +153,7 @@ function createHarness(label) {
       pending -= 1;
       // console.log('pop() =>', pending);
       if (pending <= 0) {
-	resultP.resolve(summary());
+        resultP.resolve(summary());
       }
     },
     summary,
@@ -131,102 +176,107 @@ function createHarness(label) {
 }
 
 
-async function test(label, run, htestOpt) {
-  const out = tapFormat((htestOpt || {}).writeln);
-  let calledEnd = false;
+function test(label, run, htestOpt) {
   const htest = htestOpt || theHarness || createHarness();
+  return htest.maybeDefer(async () => {
+    const out = tapFormat(htest.writeln);
+    let calledEnd = false;
 
-  out.diagnostic(label);
+    out.diagnostic(label);
 
-  function assert(result, info) {
-    const testNum = htest.finish(result);
-    if (result) {
-      out.ok(testNum, info);
-    } else {
-      out.notOk(testNum, info);
+    function assert(result, info) {
+      const testNum = htest.finish(result);
+      if (result) {
+        out.ok(testNum, info);
+      } else {
+        out.notOk(testNum, info);
+      }
     }
-  }
 
-  function ok(value, msg = 'should be truthy') {
-    assert(!!value, msg);
-  }
+    function ok(value, msg = 'should be truthy') {
+      assert(!!value, msg);
+    }
 
-  function equal(a, b, msg) {
-    assert(a === b, msg || 'should be equal');
-  }
+    function equal(a, b, msg) {
+      assert(a === b, msg || 'should be equal');
+    }
 
-  function notEqual(a, b, msg) {
-    assert(a !== b, (msg || 'should be not equal') + ` ${a} !== ${b}`);
-  }
+    function notEqual(a, b, msg) {
+      assert(a !== b, (msg || 'should be not equal') + ` ${a} !== ${b}`);
+    }
 
-  function deepEqTest(actual, expected) {
+    function deepEqTest(actual, expected) {
+      try {
+        assert(deepEqual(actual, expected), 'should be equivalent');
+      } catch (detail) {
+        const summary = JSON.stringify({ actual, expected });
+        assert(false, `should be equivalent: ${summary} : ${detail.message}`);
+      }
+    }
+
+    const t = freeze({
+      end() {
+        if (calledEnd) {
+          assert(false, 'already called end');
+        }
+        calledEnd = true;
+        htest.pop();
+      },
+      equal,
+      equals: equal,
+      notEqual,
+      isNot: notEqual,
+      deepEqual: deepEqTest,
+      deepEquals: deepEqTest,
+      throws(thunk, expected, message = `should throw like ${expected}`) {
+        try {
+          thunk();
+          assert(false, message);
+        } catch (ex) {
+          const ok = typeof expected === 'function' ? ex instanceof expected : ex.message.match(expected);
+          assert(ok, message);
+        }
+      },
+      async rejects(thunk, expected, message = `should reject like ${expected}`) {
+        try {
+          await thunk();
+          assert(false, message);
+        } catch (ex) {
+          const ok = typeof expected === 'function' ? ex instanceof expected : ex.message.match(expected);
+          assert(ok, message);
+        }
+      },
+      ok,
+      true: ok,
+      assert: ok,
+      notOk(a, message = 'should be falsy') {
+        assert(!a, message);
+      },
+      is(a, b, message = 'should be identical') {
+        assert(Object.is(a, b), message);
+      },
+    });
+
+    htest.push(label);
     try {
-      assert(deepEqual(actual, expected), 'should be equivalent');
-    } catch (detail) {
-      const summary = JSON.stringify({ actual, expected });
-      assert(false, `should be equivalent: ${summary} : ${detail.message}`);
+      await run(t);
+    } catch (ex) {
+      assert(false, `thrown: ${ex.message}`);
     }
-  }
 
-  const t = freeze({
-    end() {
-      if (calledEnd) {
-        assert(false, 'already called end');
-      }
-      calledEnd = true;
-      htest.pop();
-    },
-    equal,
-    equals: equal,
-    notEqual,
-    isNot: notEqual,
-    deepEqual: deepEqTest,
-    deepEquals: deepEqTest,
-    throws(thunk, expected, message = `should throw like ${expected}`) {
-      try {
-        thunk();
-        assert(false, message);
-      } catch (ex) {
-        const ok = typeof expected === 'function' ? ex instanceof expected : ex.message.match(expected);
-        assert(ok, message);
-      }
-    },
-    async rejects(thunk, expected, message = `should reject like ${expected}`) {
-      try {
-        await thunk();
-        assert(false, message);
-      } catch (ex) {
-        const ok = typeof expected === 'function' ? ex instanceof expected : ex.message.match(expected);
-        assert(ok, message);
-      }
-    },
-    ok,
-    true: ok,
-    assert: ok,
-    notOk(a, message = 'should be falsy') {
-      assert(!a, message);
-    },
-    is(a, b, message = 'should be identical') {
-      assert(Object.is(a, b), message);
-    },
+    if (!calledEnd) {
+      assert(false, `must call end(): ${label}`);
+      t.end();
+    }
   });
-
-  htest.push(label);
-  try {
-    await run(t);
-  } catch (ex) {
-    assert(false, `thrown: ${ex.message}`);
-  }
-
-  if (!calledEnd) {
-    assert(false, `must call end(): ${label}`);
-    t.end();
-  }
 }
 
 test.skip = function skip(label, htestOpt) {
-  const out = tapFormat((htestOpt || {}).writeln);
-  out.skip(null, label);
+  const htest = htestOpt || theHarness || createHarness();
+  return htest.maybeDefer(() => {
+    const out = tapFormat(htest.writeln);
+    out.skip(null, label);
+  });
 };
 
 
