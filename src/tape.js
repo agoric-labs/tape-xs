@@ -202,21 +202,22 @@ function test(label, run, htestOpt) {
       isNot: notEqual,
       deepEqual: deepEqTest,
       deepEquals: deepEqTest,
-      throws(thunk, pattern) {
+      throws(thunk, expected, message = `should throw like ${expected}`) {
         try {
           thunk();
-          assert(false, 'should throw');
+          assert(false, message);
         } catch (ex) {
-          assert(ex.message.match(pattern), `should throw like ${pattern}`);
+          const ok = typeof expected === 'function' ? ex instanceof expected : ex.message.match(expected);
+          assert(ok, message);
         }
       },
-      async rejects(thunk, expected) {
+      async rejects(thunk, expected, message = `should reject like ${expected}`) {
         try {
           await thunk();
-    assert(false, `should reject like ${expected}`);
+          assert(false, message);
         } catch (ex) {
-    const ok = typeof expected === 'function' ? ex instanceof expected : ex.message.match(expected);
-          assert(ok, `should reject like ${expected}`);
+          const ok = typeof expected === 'function' ? ex instanceof expected : ex.message.match(expected);
+          assert(ok, message);
         }
       },
       ok,
