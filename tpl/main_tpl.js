@@ -20,6 +20,7 @@ export default async function main() {
 
   // We use preloading to share tape's main harness.
   const htest = tape.createHarness(pkg);
+  htest.push();
   tape.deferSuites();
 
   const modMap = { ...Compartment.map };
@@ -31,6 +32,7 @@ export default async function main() {
   }
 
   await tape.runDeferredSuites();
+  htest.pop();
   const summary = await htest.result();
   console.log('Result:', summary);
 }
