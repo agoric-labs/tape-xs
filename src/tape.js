@@ -205,12 +205,12 @@ function test(label, run, htestOpt) {
       assert(a !== b, (msg || 'should be not equal') + ` ${a} !== ${b}`);
     }
 
-    function deepEqTest(actual, expected) {
+    function deepEqTest(actual, expected, message = 'should be equivalent') {
       try {
-        assert(deepEqual(actual, expected), 'should be equivalent');
+        assert(deepEqual(actual, expected, message), message);
       } catch (detail) {
         const summary = JSON.stringify({ actual, expected });
-        assert(false, `should be equivalent: ${summary} : ${detail.message}`);
+        assert(false, `${message}: ${summary} : ${detail.message}`);
       }
     }
 
