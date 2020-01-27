@@ -205,8 +205,8 @@ async function test(label, run, htestOpt) {
     notOk(a, message = 'should be falsy') {
       assert(!a, message);
     },
-    is(a, b) {
-      assert(Object.is(a, b), 'should be identical');
+    is(a, b, message = 'should be identical') {
+      assert(Object.is(a, b), message);
     },
   });
 
