@@ -109,6 +109,7 @@ function createHarness(label) {
   let passCount = 0;
   let pending = 0;
   let resultP = makePromise();
+  let suitesToRun = undefined;
 
   function summary() {
     return {
@@ -126,6 +127,24 @@ function createHarness(label) {
       }
       return testNum;
     },
+    deferSuites() {
+      suitesToRun = [];
+    },
+    maybeDefer(thunk) {
+      if (!suitesToRun) {
+        return thunk();
+      }
+      suitesToRun.push(thunk);
+    },
+    async runDeferredSuites() {
+      if (suitesToRun) {
+        while (suitesToRun.length) {
+          const suite = suitesToRun.shift();
+          await suite();
+        }
+        suitesToRun = undefined;
+      }
+    },
     push(label) {
       pending += 1;
       // console.log('push() =>', pending);
@@ -134,7 +153,7 @@ function createHarness(label) {
       pending -= 1;
       // console.log('pop() =>', pending);
       if (pending <= 0) {
-	resultP.resolve(summary());
+        resultP.resolve(summary());
       }
     },
     summary,
@@ -158,10 +177,10 @@ function createHarness(label) {
 
 
 function test(label, run, htestOpt) {
-  return maybeDefer(async function runTest() {
-    const out = tapFormat((htestOpt || {}).writeln);
+  const htest = htestOpt || theHarness || createHarness();
+  return htest.maybeDefer(async () => {
+    const out = tapFormat(htest.writeln);
     let calledEnd = false;
-    const htest = htestOpt || theHarness || createHarness();
 
     out.diagnostic(label);
 
@@ -193,21 +212,7 @@ function test(label, run, htestOpt) {
         const summary = JSON.stringify({ actual, expected });
         assert(false, `should be equivalent: ${summary} : ${detail.message}`);
       }
-<<<<<<< HEAD
-    },
-    ok,
-    true: ok,
-    assert: ok,
-    notOk(a, message = 'should be falsy') {
-      assert(!a, message);
-    },
-    is(a, b, message = 'should be identical') {
-      assert(Object.is(a, b), message);
-    },
-  });
-=======
     }
->>>>>>> f9056e7... fix: order the tests the same as tape
 
     const t = freeze({
       end() {
@@ -246,8 +251,8 @@ function test(label, run, htestOpt) {
       notOk(a, message = 'should be falsy') {
         assert(!a, message);
       },
-      is(a, b) {
-        assert(Object.is(a, b), 'should be identical');
+      is(a, b, message = 'should be identical') {
+        assert(Object.is(a, b), message);
       },
     });
 
@@ -266,19 +271,15 @@ function test(label, run, htestOpt) {
 }
 
 test.skip = function skip(label, htestOpt) {
-  return maybeDefer(function runSkip() {
-    const out = tapFormat((htestOpt || {}).writeln);
+  const htest = htestOpt || theHarness || createHarness();
+  return htest.maybeDefer(() => {
+    const out = tapFormat(htest.writeln);
     out.skip(null, label);
   });
 };
 
 
-test.createHarness = function deferCreateHarness(label) {
-  return maybeDefer(() => createHarness(label));
-};
-
-test.deferSuites = deferSuites;
-test.runDeferredSuites = runDeferredSuites;
+test.createHarness = createHarness;
 freeze(test);
 
 export default test;

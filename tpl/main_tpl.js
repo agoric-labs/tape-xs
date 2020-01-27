@@ -21,7 +21,7 @@ export default async function main() {
   // We use preloading to share tape's main harness.
   const htest = await tape.createHarness(pkg);
   htest.push();
-  tape.deferSuites();
+  htest.deferSuites();
 
   const modMap = { ...Compartment.map };
   delete modMap['timer']; // ISSUE: should whitelist
@@ -31,7 +31,7 @@ export default async function main() {
     // trace('built testing compartment\n');
   }
 
-  await tape.runDeferredSuites();
+  await htest.runDeferredSuites();
   htest.pop();
   const summary = await htest.result();
   console.log('Result:', summary);
